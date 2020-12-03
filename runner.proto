@@ -1,0 +1,102 @@
+syntax = "proto3";
+option go_package = "services/httprunner";
+option java_multiple_files = true;
+option java_package = "apigo.runner.grpc.services.httprunner";
+option java_outer_classname = "HttpRunnerServiceProto";
+
+package httprunner;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+message Url {
+  string url = 1;
+  string method = 2;
+  string body = 3;
+  string headers = 4;
+}
+
+enum Status {
+  UNKNOWN = 0;
+  QUEUED = 1;
+  RUNNING = 2;
+  DONE = 3;
+  ERROR = 9;
+}
+
+message RunnerConfig {
+
+  // String presentation of duration, e.g. "3s", "10m"
+  string Duration = 2;
+  // How many concurrent workers
+  int32  Workers = 3;
+  // Keep response
+  bool NeedResponse = 4;
+  Url url = 5;
+  bool CountRequestSize = 7;
+  bool CountResponseSize = 8;
+}
+
+message Runner {
+  int32 RunnerId = 1;
+  RunnerConfig config = 2;
+  Stat Stats = 3;
+  google.protobuf.Timestamp StartTime = 4;
+  Status status = 6;
+  float progress = 7;
+}
+
+message Stat {
+  google.protobuf.Timestamp Avg = 1;
+  google.protobuf.Timestamp Min = 2;
+  google.protobuf.Timestamp Max = 3;
+  google.protobuf.Timestamp P50 = 4;
+  google.protobuf.Timestamp P90 = 5;
+  google.protobuf.Timestamp P95 = 6;
+  google.protobuf.Timestamp P99 = 7;
+  google.protobuf.Timestamp Mean = 8;
+  float StdDev = 9;
+
+}
+message Metric {
+  int32 DataSent = 1;
+  int32 DataReceived = 2;
+  google.protobuf.Timestamp Blocked = 3;
+  google.protobuf.Timestamp Connecting = 4;
+  google.protobuf.Timestamp Duration = 5;
+  google.protobuf.Timestamp Receiving = 6;
+  google.protobuf.Timestamp Sending = 7;
+  google.protobuf.Timestamp Tls = 8;
+  google.protobuf.Timestamp Waiting = 9;
+  google.protobuf.Timestamp Total = 10;
+}
+
+message SimpleResponse {
+  int32 status = 1;
+  string message = 2;
+}
+
+message RunnerResponse {
+  int32 status = 1;
+  string message = 2;
+  RunnerConfig runnerConfig = 3;
+}
+
+message IdRunnerRequest {
+  int32 runnerId = 1;
+}
+
+message RunnersResponse {
+  int32 status = 1;
+  int32 count = 2;
+  repeated RunnerConfig runners = 5;
+}
+
+service HttpRunner {
+  rpc Enqueue(RunnerConfig) returns (RunnerResponse) {}
+  rpc GetRunner(IdRunnerRequest) returns (RunnerResponse) {}
+  rpc GetRunners(google.protobuf.Empty) returns (RunnersResponse) {}
+  rpc RemoveRunner(IdRunnerRequest) returns (SimpleResponse) {}
+  rpc CancelRunning(google.protobuf.Empty) returns (SimpleResponse) {}
+  rpc Listen(google.protobuf.Empty) returns (RunnerResponse) {}
+}

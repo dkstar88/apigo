@@ -37,6 +37,7 @@ type Runner struct {
 	// stages
 	// stages []Stage
 	// Logger
+	Request APIRequest
 	// Job Provider
 	JobProvider       JobProviderFunc
 	JobsCreated       int
