@@ -1,8 +1,8 @@
 package services
 
 import (
-	"apigo/runner/runner"
-	pb "apigo/runner/services/httprunner"
+	"apigo/runner"
+	pb "apigo/services/httprunner"
 	"bufio"
 	"context"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -35,18 +35,21 @@ func (h *HttpRunnerServer) Enqueue(ctx context.Context, config *pb.RunnerConfig)
 		log.Fatal(err)
 	}
 	runnerConfig := runner.Runner{
-		Duration:          duration,
-		Workers:           int(config.Workers),
-		NeedResponse:      config.NeedResponse,
-		Request:           runner.APIRequest{
-			Method:  config.Url.Method,
-			URL:     config.Url.Url,
-			Body:    config.Url.Body,
-			Headers: http.Header(mimeHeader),
+		Config: runner.RunnerConfig{
+			Duration:          duration,
+			Workers:           int(config.Workers),
+			NeedResponse:      config.NeedResponse,
+			Request:           runner.APIRequest{
+				Method:  config.Url.Method,
+				URL:     config.Url.Url,
+				Body:    config.Url.Body,
+				Headers: http.Header(mimeHeader),
+			},
+			OutputCSVFilename: "",
+			CountRequestSize:  false,
+			CountResponseSize: false,
 		},
 		Metrics:           nil,
-		CountRequestSize:  false,
-		CountResponseSize: false,
 	}
 	h.runners = append(h.runners, runnerConfig)
 	result := pb.RunnerResponse{
@@ -54,13 +57,13 @@ func (h *HttpRunnerServer) Enqueue(ctx context.Context, config *pb.RunnerConfig)
 		Message:      "",
 		RunnerConfig: &pb.RunnerConfig{
 			RunnerId:     int32(len(h.runners)),
-			Duration:     runnerConfig.Duration.String(),
-			Workers:      int32(runnerConfig.Workers),
-			NeedResponse: runnerConfig.NeedResponse,
+			Duration:     runnerConfig.Config.Duration.String(),
+			Workers:      int32(runnerConfig.Config.Workers),
+			NeedResponse: runnerConfig.Config.NeedResponse,
 			Url:        &pb.Url{
-				Url:     runnerConfig.Request.URL,
-				Method:  runnerConfig.Request.URL,
-				Body:    runnerConfig.Request.URL,
+				Url:     runnerConfig.Config.Request.URL,
+				Method:  runnerConfig.Config.Request.Method,
+				Body:    runnerConfig.Config.Request.Body,
 				Headers: config.Url.Headers,
 			},
 			Status:       0,
