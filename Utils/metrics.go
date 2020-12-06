@@ -1,7 +1,7 @@
-package Utils
+package utils
 
 import (
-	"apigo/runner/models"
+	"apigo/runner"
 	"reflect"
 	"sort"
 	"time"
@@ -39,8 +39,8 @@ func GetStats(durations []time.Duration) MetricStat {
 	return result
 }
 
-func MetricsExtract(metrics []models.Metric, field string) []time.Duration {
-	tmpMetric := models.Metric{}
+func MetricsExtract(metrics []runner.Metric, field string) []time.Duration {
+	tmpMetric := runner.Metric{}
 	vt := reflect.TypeOf(tmpMetric)
 	f, _ := vt.FieldByName(field)
 	result := make([]time.Duration, len(metrics))
@@ -50,7 +50,7 @@ func MetricsExtract(metrics []models.Metric, field string) []time.Duration {
 	return result
 }
 
-func MetricsToCsv(metrics []models.Metric, csvFilename string) {
+func MetricsToCsv(metrics []runner.Metric, csvFilename string) {
 
 	headers := []string{
 		"DataSent", "DataReceived",

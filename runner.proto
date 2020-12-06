@@ -1,7 +1,7 @@
 syntax = "proto3";
 option go_package = "services/httprunner";
 option java_multiple_files = true;
-option java_package = "apigo.runner.grpc.services.httprunner";
+option java_package = "apigo.grpc.services.httprunner";
 option java_outer_classname = "HttpRunnerServiceProto";
 
 package httprunner;

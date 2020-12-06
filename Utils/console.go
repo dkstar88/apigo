@@ -1,20 +1,20 @@
-package Utils
+package utils
 
 import (
-	"apigo/runner/models"
+	"apigo/runner"
 	"fmt"
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 	"os"
 )
 
-func ConsoleOutput(runner *models.Runner) {
+func ConsoleOutput(runner *runner.Runner) {
 	// Summary
 	ColorPrintSummary("URL", color.FgGreen, runner.JobProvider().URL)
-	ColorPrintSummary("Workers", color.FgGreen, fmt.Sprintf("%d", runner.Workers))
+	ColorPrintSummary("Workers", color.FgGreen, fmt.Sprintf("%d", runner.Config.Workers))
 	ColorPrintSummary("Time Started", color.FgGreen, runner.Start.String())
 	ColorPrintSummary("Iterations", color.FgGreen, fmt.Sprintf("%d", runner.JobsProcessed))
-	ColorPrintSummary("RPS", color.FgGreen, fmt.Sprintf("%.2f", float64(runner.JobsProcessed)/runner.Duration.Seconds()))
+	ColorPrintSummary("RPS", color.FgGreen, fmt.Sprintf("%.2f", float64(runner.JobsProcessed)/runner.Config.Duration.Seconds()))
 
 	fields := []string{"HTTPBlocked", "HTTPDNS", "HTTPTls",
 		"HTTPConnecting", "HTTPSending", "HTTPWaiting",

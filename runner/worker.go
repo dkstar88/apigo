@@ -1,14 +1,9 @@
-package services
+package runner
 
 import (
-	"apigo/runner/Utils"
-	"apigo/runner/models"
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"encoding/pem"
-	"fmt"
-	"github.com/TylerBrock/colorjson"
 	"golang.org/x/net/http2"
 	"io/ioutil"
 	"log"
@@ -21,51 +16,35 @@ import (
 	"time"
 )
 
-type Runner struct {
-	config models.Runner
-}
-// jobProvider provides jobs and add to jobs channel
-func (runner *Runner) collectFromJobProvider(ctx context.Context, jobs chan models.Job) {
-	j := 1
-	for {
-		select {
-		case <-ctx.Done():
-			break
-		case jobs <- runner.config.JobProvider():
-			//fmt.Println("Pushing a new job")
-			// jobs <- fmt.Sprintf("https://jsonplaceholder.typicode.com/users/%d", j)
-			j++
-			runner.config.JobsCreated = j
-		}
-	}
+type Worker struct {
+	runner Runner
 }
 
-func RunnerRun(config models.Runner) {
-	runner := Runner{ config: config}
-	runner.Run()
+func WorkerRun(runner Runner) {
+	worker := Worker{runner: runner}
+	worker.Run()
 }
+
 // Run from runner configuration
-func (runner *Runner) Run() {
+func (worker *Worker) Run() {
 
 	var wg sync.WaitGroup
 	//fmt.Println("Run >>>")
-	workers := runner.config.Workers
-	jobs := make(chan models.Job, workers)
-	results := make(chan models.APIResponse, workers)
+	workers := worker.runner.Config.Workers
+	results := make(chan APIResponse, workers)
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
-	go runner.collectFromJobProvider(ctx, jobs)
 	for w := 1; w <= workers; w++ {
-		go runner.worker(wg, ctx, w, jobs, results)
+		go worker.worker(&wg, ctx, results)
 	}
 	wg.Add(workers)
-	runner.config.Start = time.Now()
-	runner.OnJobStart()
+	worker.runner.Start = time.Now()
+	worker.OnJobStart()
 	for {
-		timeSince := time.Since(runner.config.Start)
+		timeSince := time.Since(worker.runner.Start)
 		// fmt.Printf("Time since: %v\n", timeSince)
-		if timeSince < runner.config.Duration {
+		if timeSince < worker.runner.Config.Duration {
 			// Still running
 			//fmt.Println("Still running")
 		} else {
@@ -74,23 +53,8 @@ func (runner *Runner) Run() {
 			break
 		}
 		for a := 1; a <= len(results); a++ {
-			runner.config.JobsProcessed++
-			thisResult := <-results
-			if runner.config.NeedResponse {
-				var obj map[string]interface{}
-				e := json.Unmarshal(thisResult.Body, &obj)
-				if e != nil {
-					log.Fatal("JSON Unmarshal failed")
-				}
-				// Make a custom formatter with indent set
-				f := colorjson.NewFormatter()
-				f.Indent = 4
-
-				// Marshall the Colorized JSON
-				s, _ := f.Marshal(obj)
-				fmt.Println(string(s))
-			}
-
+			worker.runner.JobsProcessed++
+			<-results
 		}
 	}
 	cancel()
@@ -99,16 +63,15 @@ func (runner *Runner) Run() {
 		close(results)
 	}()
 
-	runner.OnJobComplete()
-	//fmt.Println("Run <<<")
+	worker.OnJobComplete()
 }
 
 // worker processes jobs channel and sends http request
-func (runner *Runner) worker(waiter sync.WaitGroup, ctx context.Context, id int, jobs <-chan models.Job, results chan<- models.APIResponse) {
+func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, results chan<- APIResponse) {
 	for {
-		j := runner.config.JobProvider()
+		j := worker.runner.JobProvider()
 		//fmt.Println("worker", id, "started  job", j)
-		r := runner.MakeRequest(ctx, j)
+		r := worker.MakeRequest(ctx, j)
 		//fmt.Println("worker", id, "finished job", j)
 
 		select {
@@ -122,10 +85,9 @@ func (runner *Runner) worker(waiter sync.WaitGroup, ctx context.Context, id int,
 
 var (
 	// Command line flags.
-	insecure        bool
-	clientCertFile  string
+	insecure       bool
+	clientCertFile string
 )
-
 
 // readClientCert - helper function to read client certificate
 // from pem formatted file
@@ -166,10 +128,8 @@ func readClientCert(filename string) []tls.Certificate {
 	return []tls.Certificate{cert}
 }
 
-
-
 // MakeRequest - initiate a request using HTTP
-func (runner *Runner) MakeRequest(ctx context.Context, job models.Job) models.APIResponse {
+func (worker *Worker) MakeRequest(ctx context.Context, job Job) APIResponse {
 
 	u, err := url.Parse(job.URL)
 	if err != nil {
@@ -210,7 +170,7 @@ func (runner *Runner) MakeRequest(ctx context.Context, job models.Job) models.AP
 		GotFirstResponseByte: func() { responseStart = time.Now() },
 		TLSHandshakeStart:    func() { tlsStart = time.Now() },
 		TLSHandshakeDone:     func(_ tls.ConnectionState, _ error) { tlsDone = time.Now() },
-		WroteRequest: func(_ httptrace.WroteRequestInfo) { requestDone = time.Now() },
+		WroteRequest:         func(_ httptrace.WroteRequestInfo) { requestDone = time.Now() },
 	}
 	req = req.WithContext(httptrace.WithClientTrace(context.Background(), trace))
 
@@ -263,37 +223,33 @@ func (runner *Runner) MakeRequest(ctx context.Context, job models.Job) models.AP
 		dnsStart = dnsDone
 	}
 
-	apiResponse := models.APIResponse{Headers: res.Header, Status: res.StatusCode}
+	apiResponse := APIResponse{Headers: res.Header, Status: res.StatusCode}
 	apiResponse.ContentType = res.Header.Get("Content-Type")
 	dataReceived := 0
-	if runner.config.CountResponseSize {
-		dataReceived = Utils.CountResponseSize(res)
+	if worker.runner.Config.CountResponseSize {
+		dataReceived = CountResponseSize(res)
 	}
 	dataSent := 0
-	if runner.config.CountRequestSize{
-		dataSent = Utils.CountRequestSize(req)
+	if worker.runner.Config.CountRequestSize {
+		dataSent = CountRequestSize(req)
 	}
-	if runner.config.NeedResponse {
-		// read response body
-		apiResponse.Body, _ = ioutil.ReadAll(res.Body)
-		dataReceived = len(apiResponse.Body)
-		// close response body
-		e := res.Body.Close()
-		if e != nil {
-			log.Fatal("Response body close failed")
+	if worker.runner.Config.NeedResponse {
+		if worker.runner.OnJobResponse != nil {
+			worker.runner.OnJobResponse(&worker.runner, res)
 		}
+
 	}
 
-	metric := models.Metric{
+	metric := Metric{
 		DataSent:       dataSent,
 		DataReceived:   dataReceived,
 		HTTPDNS:        dnsDone.Sub(dnsStart),
 		HTTPConnecting: connStart.Sub(dnsDone),
 		HTTPReceiving:  responseDone.Sub(responseStart),
-		HTTPBlocked: 	dnsStart.Sub(requestStart),
+		HTTPBlocked:    dnsStart.Sub(requestStart),
 		HTTPWaiting:    responseStart.Sub(connDone),
-		HTTPSending: requestDone.Sub(connDone),
-		HTTPTotal: responseDone.Sub(requestStart),
+		HTTPSending:    requestDone.Sub(connDone),
+		HTTPTotal:      responseDone.Sub(requestStart),
 	}
 	switch u.Scheme {
 	case "https":
@@ -303,19 +259,20 @@ func (runner *Runner) MakeRequest(ctx context.Context, job models.Job) models.AP
 		metric.HTTPConnecting = connDone.Sub(dnsDone)
 	}
 
-	runner.config.Metrics = append(runner.config.Metrics, metric)
+	worker.runner.Metrics = append(worker.runner.Metrics, metric)
 	return apiResponse
 }
 
-func (runner *Runner) OnJobStart() {
+func (worker *Worker) OnJobStart() {
 	// TODO: Move runner setup code here
+	if worker.runner.OnJobStart != nil {
+		worker.runner.OnJobStart(&worker.runner)
+	}
 }
 
-func (runner *Runner) OnJobComplete() {
-	Utils.ConsoleOutput(&runner.config)
-	if len(runner.config.OutputCSVFilename) <= 0 {
-		return
-	}
-	Utils.MetricsToCsv(runner.config.Metrics, runner.config.OutputCSVFilename)
+func (worker *Worker) OnJobComplete() {
 
+	if worker.runner.OnJobComplete != nil {
+		worker.runner.OnJobComplete(&worker.runner)
+	}
 }

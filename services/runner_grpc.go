@@ -1,7 +1,7 @@
 package services
 
 import (
-	"apigo/runner/models"
+	"apigo/runner/runner"
 	pb "apigo/runner/services/httprunner"
 	"bufio"
 	"context"
@@ -17,8 +17,8 @@ var MaxRunner = 100
 
 type HttpRunnerServer struct {
 	pb.UnimplementedHttpRunnerServer
-	runners []models.Runner
-	currentRunner *models.Runner
+	runners []runner.Runner
+	currentRunner *runner.Runner
 
 }
 
@@ -34,11 +34,11 @@ func (h *HttpRunnerServer) Enqueue(ctx context.Context, config *pb.RunnerConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
-	runnerConfig := models.Runner{
+	runnerConfig := runner.Runner{
 		Duration:          duration,
 		Workers:           int(config.Workers),
 		NeedResponse:      config.NeedResponse,
-		Request:           models.APIRequest{
+		Request:           runner.APIRequest{
 			Method:  config.Url.Method,
 			URL:     config.Url.Url,
 			Body:    config.Url.Body,

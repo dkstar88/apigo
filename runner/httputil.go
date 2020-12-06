@@ -1,4 +1,4 @@
-package Utils
+package runner
 
 import (
 	"fmt"
