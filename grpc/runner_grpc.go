@@ -1,8 +1,8 @@
-package services
+package grpc
 
 import (
+	pb "apigo/grpc/httprunner"
 	"apigo/runner"
-	pb "apigo/services/httprunner"
 	"bufio"
 	"context"
 	"google.golang.org/protobuf/types/known/emptypb"
