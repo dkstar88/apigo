@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/pem"
+	"fmt"
 	"golang.org/x/net/http2"
 	"io/ioutil"
 	"log"
@@ -69,8 +70,8 @@ func (worker *Worker) Run() {
 // worker processes jobs channel and sends http request
 func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, results chan<- APIResponse) {
 	for {
-		j := worker.runner.JobProvider()
-		//fmt.Println("worker", id, "started  job", j)
+		j := worker.runner.OnJobRequest(&worker.runner)
+		fmt.Printf("started job: %v\n", j)
 		r := worker.MakeRequest(ctx, j)
 		//fmt.Println("worker", id, "finished job", j)
 
@@ -133,7 +134,7 @@ func (worker *Worker) MakeRequest(ctx context.Context, job Job) APIResponse {
 
 	u, err := url.Parse(job.URL)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("url.Parse: %v", err)
 	}
 	query := u.Query()
 	for k, v := range job.Arguments {
@@ -145,7 +146,7 @@ func (worker *Worker) MakeRequest(ctx context.Context, job Job) APIResponse {
 	// create a request object
 	req, err := http.NewRequestWithContext(ctx, job.Method, u.String(), nil)
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Fatalf("NewRequestWithContext: %v", err)
 	}
 	req.Header.Add("Content-Type", job.ContentType)
 

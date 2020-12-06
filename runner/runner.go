@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -39,7 +38,7 @@ func NewAPIRequest(method string, url string, arguments url.Values) APIRequest {
 	return req
 }
 
-type JobProviderFunc func() APIRequest
+type JobProviderFunc func(runner *Runner) APIRequest
 type Job = APIRequest
 
 // Metric tracks each http request timing metrics
@@ -70,43 +69,32 @@ type RunnerConfig struct {
 	CountResponseSize bool
 }
 
-type RunnerEventFunc func (runner *Runner)
+type EventFunc func (runner *Runner)
 type JobResponseFunc func (runner *Runner, response *http.Response)
 // Worker - HTTP Job Worker
 type Runner struct {
 	// Start time
 	Start         time.Time
 	Config        RunnerConfig
-	JobProvider   JobProviderFunc
 	JobsCreated   int
 	JobsProcessed int
 	Metrics       []Metric
-	OnJobStart    RunnerEventFunc
-	OnJobComplete RunnerEventFunc
+	OnJobStart    EventFunc
+	OnJobComplete EventFunc
 	OnJobRequest  JobProviderFunc
 	OnJobResponse JobResponseFunc
 }
 
 // NewRunner creates a new runner
-func NewRunner(seconds int, workers int) *Runner {
+func NewRunner(runnerConfig RunnerConfig) *Runner {
 	return &Runner{
-		Config: RunnerConfig{
-			Duration:          time.Duration(seconds) * time.Second,
-			Workers:           workers,
-			NeedResponse:      false,
-			Request:           APIRequest{},
-			OutputCSVFilename: "",
-			CountRequestSize:  false,
-			CountResponseSize: false,
-		},
+		Config: runnerConfig,
 		JobsCreated:   0,
 		JobsProcessed: 0,
-		JobProvider:   DefaultJobProvider,
+		OnJobRequest: DefaultJobRequest,
 	}
 }
 
-// DefaultJobProvider to provide sample job request
-func DefaultJobProvider() Job {
-	j := 1
-	return NewAPIRequest("GET", fmt.Sprintf("https://jsonplaceholder.typicode.com/users/%d", j), make(url.Values))
+func DefaultJobRequest(runner *Runner) APIRequest {
+	return runner.Config.Request
 }

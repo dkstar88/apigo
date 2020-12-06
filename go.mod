@@ -11,6 +11,7 @@ require (
 	github.com/icza/gox v0.0.0-20200702115100-7dc3510ae515
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/schollz/progressbar/v3 v3.7.2
+	github.com/spf13/cobra v1.1.1
 	golang.org/x/crypto v0.0.0-20201203163018-be400aefbc4c // indirect
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	golang.org/x/sys v0.0.0-20201204225414-ed752295db88 // indirect
