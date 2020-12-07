@@ -10,9 +10,7 @@ import (
 
 func ConsoleOutput(runner *runner.Runner) {
 	// Summary
-	ColorPrintSummary("URL", color.FgGreen, runner.Config.Request.URL)
-	ColorPrintSummary("Workers", color.FgGreen, fmt.Sprintf("%d", runner.Config.Workers))
-	ColorPrintSummary("Time Started", color.FgGreen, runner.Start.String())
+
 	ColorPrintSummary("Iterations", color.FgGreen, fmt.Sprintf("%d", runner.JobsProcessed))
 	ColorPrintSummary("RPS", color.FgGreen, fmt.Sprintf("%.2f", float64(runner.JobsProcessed)/runner.Config.Duration.Seconds()))
 

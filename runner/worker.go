@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/pem"
-	"fmt"
 	"golang.org/x/net/http2"
 	"io/ioutil"
 	"log"
@@ -18,11 +17,11 @@ import (
 )
 
 type Worker struct {
-	runner Runner
+	runner *Runner
 }
 
 func WorkerRun(runner Runner) {
-	worker := Worker{runner: runner}
+	worker := Worker{runner: &runner}
 	worker.Run()
 }
 
@@ -70,8 +69,9 @@ func (worker *Worker) Run() {
 // worker processes jobs channel and sends http request
 func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, results chan<- APIResponse) {
 	for {
-		j := worker.runner.OnJobRequest(&worker.runner)
-		fmt.Printf("started job: %v\n", j)
+		worker.runner.JobsCreated++
+		j := worker.runner.OnJobRequest(worker.runner)
+		//fmt.Printf("started job: %v\n", j)
 		r := worker.MakeRequest(ctx, j)
 		//fmt.Println("worker", id, "finished job", j)
 
@@ -236,7 +236,7 @@ func (worker *Worker) MakeRequest(ctx context.Context, job Job) APIResponse {
 	}
 	if worker.runner.Config.NeedResponse {
 		if worker.runner.OnJobResponse != nil {
-			worker.runner.OnJobResponse(&worker.runner, res)
+			worker.runner.OnJobResponse(worker.runner, res)
 		}
 
 	}
@@ -267,13 +267,13 @@ func (worker *Worker) MakeRequest(ctx context.Context, job Job) APIResponse {
 func (worker *Worker) OnJobStart() {
 	// TODO: Move runner setup code here
 	if worker.runner.OnJobStart != nil {
-		worker.runner.OnJobStart(&worker.runner)
+		worker.runner.OnJobStart(worker.runner)
 	}
 }
 
 func (worker *Worker) OnJobComplete() {
 
 	if worker.runner.OnJobComplete != nil {
-		worker.runner.OnJobComplete(&worker.runner)
+		worker.runner.OnJobComplete(worker.runner)
 	}
 }

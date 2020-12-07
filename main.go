@@ -4,12 +4,16 @@ import (
 	Runner "apigo/runner"
 	"apigo/utils"
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"net/http"
 	"time"
 )
 
+
+var ticker = time.NewTicker(500 * time.Millisecond)
+var done = make(chan bool)
 
 func ConsoleRunnerOnJobComplete(runner *Runner.Runner) {
 	bar.Finish()
@@ -18,10 +22,28 @@ func ConsoleRunnerOnJobComplete(runner *Runner.Runner) {
 		utils.MetricsToCsv(runner.Metrics, runner.Config.OutputCSVFilename)
 	}
 	utils.ConsoleOutput(runner)
+	ticker.Stop()
+	done <- true
 }
 
 func ConsoleRunnerOnJobStart(runner *Runner.Runner) {
+	utils.ColorPrintSummary("URL", color.FgGreen, runner.Config.Request.URL)
+	utils.ColorPrintSummary("Workers", color.FgGreen, fmt.Sprintf("%d", runner.Config.Workers))
+	utils.ColorPrintSummary("Time Started", color.FgGreen, runner.Start.String())
 	bar.Set(0)
+	go func(runner *Runner.Runner) {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				progress := time.Now().Sub(runner.Start).Seconds() / runner.Config.Duration.Seconds() * 10000
+				//fmt.Printf("%f, %f Duration Seconds\n", time.Now().Sub(runner.Start).Seconds(), runner.Config.Duration.Seconds())
+				bar.Describe(fmt.Sprintf("%d/%d Jobs Completed", runner.JobsProcessed, runner.JobsCreated))
+				bar.Set(int(progress))
+			}
+		}
+	} (runner)
 }
 
 var bar = progressbar.NewOptions(10000,
@@ -40,6 +62,7 @@ func OnRunnerJobResponse (runner *Runner.Runner, response *http.Response) {
 	// Calc progress
 	progress := time.Now().Sub(runner.Start).Seconds() / runner.Config.Duration.Seconds() * 10000
 	bar.Set(int(progress))
+
 }
 
 var runnerConfig = Runner.RunnerConfig {
@@ -68,13 +91,15 @@ func main() {
 
 		runnerConfig.Duration, _ = time.ParseDuration(duration)
 		runnerConfig.Request.URL = args[0]
-		bar.Reset()
+		//bar.Reset()
 		runner := Runner.NewRunner(runnerConfig)
-		fmt.Printf("%v\n", runnerConfig)
+		//fmt.Printf("%v\n", runnerConfig)
 		runner.OnJobStart = ConsoleRunnerOnJobStart
 		runner.OnJobComplete = ConsoleRunnerOnJobComplete
 		runner.OnJobResponse = OnRunnerJobResponse
+
 		Runner.WorkerRun(*runner)
+
 	}
 	rootCmd.Execute()
 }
