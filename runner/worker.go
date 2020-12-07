@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/pem"
 	"fmt"
-	"golang.org/x/net/http2"
 	"io/ioutil"
 	"log"
 	"net"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/net/http2"
 )
 
 type Worker struct {
@@ -37,9 +38,9 @@ func (worker *Worker) Run() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	for w := 1; w <= workers; w++ {
+		wg.Add(1)
 		go worker.worker(&wg, ctx, results)
 	}
-	wg.Add(workers)
 	worker.runner.Start = time.Now()
 	worker.OnJobStart()
 	for {
@@ -69,6 +70,8 @@ func (worker *Worker) Run() {
 
 // worker processes jobs channel and sends http request
 func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, results chan<- APIResponse) {
+	defer waiter.Done()
+
 	for {
 		j := worker.runner.OnJobRequest(&worker.runner)
 		fmt.Printf("started job: %v\n", j)
@@ -77,7 +80,7 @@ func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, result
 
 		select {
 		case <-ctx.Done():
-			waiter.Done()
+			//waiter.Done()
 			break
 		case results <- r:
 		}
