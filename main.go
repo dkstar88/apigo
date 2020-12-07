@@ -48,7 +48,7 @@ func ConsoleRunnerOnJobStart(runner *Runner.Runner) {
 
 var bar = progressbar.NewOptions(10000,
 	progressbar.OptionEnableColorCodes(true),
-	progressbar.OptionSetWidth(15),
+	progressbar.OptionSetWidth(30),
 	progressbar.OptionSetDescription("[cyan][reset] Running..."),
 	progressbar.OptionSetTheme(progressbar.Theme{
 		Saucer:        "[green]=[reset]",
