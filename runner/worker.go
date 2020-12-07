@@ -68,6 +68,8 @@ func (worker *Worker) Run() {
 
 // worker processes jobs channel and sends http request
 func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, results chan<- APIResponse) {
+	defer waiter.Done()
+
 	for {
 		worker.runner.JobsCreated++
 		j := worker.runner.OnJobRequest(worker.runner)
@@ -77,7 +79,7 @@ func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, result
 
 		select {
 		case <-ctx.Done():
-			waiter.Done()
+
 			break
 		case results <- r:
 		}
