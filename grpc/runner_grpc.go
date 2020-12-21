@@ -77,26 +77,42 @@ func (h *HttpRunnerServer) Enqueue(ctx context.Context, config *pb.RunnerConfig)
 }
 
 func (h *HttpRunnerServer) GetRunner(ctx context.Context, request *pb.IdRunnerRequest) (*pb.RunnerResponse, error) {
-	panic("implement me")
+	return &pb.RunnerResponse{
+		Status:       0,
+		Message:      "OK",
+		RunnerConfig: nil,
+	}, nil
 }
 
 func (h *HttpRunnerServer) GetRunners(ctx context.Context, empty *emptypb.Empty) (*pb.RunnersResponse, error) {
-	panic("implement me")
+	return &pb.RunnersResponse{
+		Status:       0,
+	}, nil
 }
 
 func (h *HttpRunnerServer) RemoveRunner(ctx context.Context, request *pb.IdRunnerRequest) (*pb.SimpleResponse, error) {
-	panic("implement me")
+	return &pb.SimpleResponse{
+		Status:       0,
+		Message:      "OK",
+	}, nil
 }
 
 func (h *HttpRunnerServer) CancelRunning(ctx context.Context, empty *emptypb.Empty) (*pb.SimpleResponse, error) {
-	panic("implement me")
+	return &pb.SimpleResponse{
+		Status:       0,
+		Message:      "OK",
+	}, nil
 }
 
-func (h HttpRunnerServer) Listen(ctx context.Context, empty *emptypb.Empty) (*pb.RunnerResponse, error) {
-	panic("implement me")
+func (h *HttpRunnerServer) Listen(ctx context.Context, empty *emptypb.Empty) (*pb.RunnerResponse, error) {
+	return &pb.RunnerResponse{
+		Status:       0,
+		Message:      "OK",
+		RunnerConfig: nil,
+	}, nil
 }
 
-func (h HttpRunnerServer) mustEmbedUnimplementedHttpRunnerServer() {
-	panic("implement me")
-}
+//func (h HttpRunnerServer) mustEmbedUnimplementedHttpRunnerServer() {
+//	panic("implement me")
+//}
 

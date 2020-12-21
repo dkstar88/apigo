@@ -179,10 +179,11 @@ func main() {
 func startGrpcServer(address string, port uint) {
 	netListener := getNetListener(address, port)
 	gRPCServer := grpc.NewServer()
-
 	grpcRunnerImpl := apigoGrpc.NewHttpRunnerServer()
-	httprunner.RegisterHttpRunnerServer(gRPCServer, grpcRunnerImpl.HttpRunnerServer)
+	//gRPCServer.RegisterService(&grpcRunnerImpl, &apigoGrpc.HttpRunnerServer{})
+	httprunner.RegisterHttpRunnerServer(gRPCServer, grpcRunnerImpl)
 
+	println(fmt.Sprintf("Starting gRPC server at %s:%d", address, port))
 	// start the server
 	if err := gRPCServer.Serve(netListener); err != nil {
 		log.Fatalf("failed to serve: %s", err)
