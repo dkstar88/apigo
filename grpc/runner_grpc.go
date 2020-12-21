@@ -16,10 +16,14 @@ import (
 var MaxRunner = 100
 
 type HttpRunnerServer struct {
-	pb.UnimplementedHttpRunnerServer
+	pb.HttpRunnerServer
 	runners []runner.Runner
 	currentRunner *runner.Runner
 
+}
+
+func NewHttpRunnerServer() *HttpRunnerServer {
+	return &HttpRunnerServer{}
 }
 
 func (h *HttpRunnerServer) Enqueue(ctx context.Context, config *pb.RunnerConfig) (*pb.RunnerResponse, error) {
