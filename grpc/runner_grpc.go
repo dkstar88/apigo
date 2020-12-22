@@ -5,6 +5,7 @@ import (
 	"apigo/runner"
 	"bufio"
 	"context"
+	"fmt"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"log"
 	"net/http"
@@ -17,13 +18,20 @@ var MaxRunner = 100
 
 type HttpRunnerServer struct {
 	pb.HttpRunnerServer
-	runners []runner.Runner
+	runners []*runner.Runner
+	runnerChan chan *runner.Runner
 	currentRunner *runner.Runner
 
 }
 
 func NewHttpRunnerServer() *HttpRunnerServer {
-	return &HttpRunnerServer{}
+	svr := &HttpRunnerServer{
+		runners: make([]*runner.Runner, 0),
+		currentRunner: nil,
+		runnerChan: make(chan *runner.Runner, 100),
+	}
+	go svr.processRunners()
+	return svr
 }
 
 func (h *HttpRunnerServer) Enqueue(ctx context.Context, config *pb.RunnerConfig) (*pb.RunnerResponse, error) {
@@ -55,7 +63,7 @@ func (h *HttpRunnerServer) Enqueue(ctx context.Context, config *pb.RunnerConfig)
 		},
 		Metrics:           nil,
 	}
-	h.runners = append(h.runners, runnerConfig)
+	h.runners = append(h.runners, &runnerConfig)
 	result := pb.RunnerResponse{
 		Status:       0,
 		Message:      "",
@@ -73,6 +81,8 @@ func (h *HttpRunnerServer) Enqueue(ctx context.Context, config *pb.RunnerConfig)
 			Status:       0,
 		},
 	}
+	fmt.Printf("Runner Added %v\n", runnerConfig)
+	h.runnerChan <- &runnerConfig
 	return &result, nil
 }
 
@@ -97,6 +107,7 @@ func (h *HttpRunnerServer) RemoveRunner(ctx context.Context, request *pb.IdRunne
 	}, nil
 }
 
+
 func (h *HttpRunnerServer) CancelRunning(ctx context.Context, empty *emptypb.Empty) (*pb.SimpleResponse, error) {
 	return &pb.SimpleResponse{
 		Status:       0,
@@ -112,6 +123,12 @@ func (h *HttpRunnerServer) Listen(ctx context.Context, empty *emptypb.Empty) (*p
 	}, nil
 }
 
+func (h* HttpRunnerServer) processRunners() {
+	for true {
+		h.currentRunner = <- h.runnerChan
+		runner.WorkerRun(*h.currentRunner)
+	}
+}
 //func (h HttpRunnerServer) mustEmbedUnimplementedHttpRunnerServer() {
 //	panic("implement me")
 //}

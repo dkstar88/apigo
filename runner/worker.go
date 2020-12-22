@@ -16,6 +16,13 @@ import (
 	"time"
 )
 
+var DefaultRunner = Runner{
+	OnJobStart:    nil,
+	OnJobComplete: nil,
+	OnJobRequest:  nil,
+	OnJobResponse: nil,
+}
+
 type Worker struct {
 	runner *Runner
 }
@@ -72,7 +79,15 @@ func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, result
 
 	for {
 		worker.runner.JobsCreated++
-		j := worker.runner.OnJobRequest(worker.runner)
+		var j Job
+		if worker.runner.OnJobRequest != nil {
+			j = worker.runner.OnJobRequest(worker.runner)
+		} else if DefaultRunner.OnJobRequest != nil {
+			j = DefaultRunner.OnJobRequest(worker.runner)
+		} else {
+			j = DefaultJobRequest(worker.runner)
+		}
+
 		//fmt.Printf("started job: %v\n", j)
 		r := worker.MakeRequest(ctx, j)
 		//fmt.Println("worker", id, "finished job", j)
@@ -239,6 +254,8 @@ func (worker *Worker) MakeRequest(ctx context.Context, job Job) APIResponse {
 	if worker.runner.Config.NeedResponse {
 		if worker.runner.OnJobResponse != nil {
 			worker.runner.OnJobResponse(worker.runner, res)
+		} else if DefaultRunner.OnJobResponse != nil {
+			DefaultRunner.OnJobResponse(worker.runner, res)
 		}
 
 	}
@@ -270,6 +287,8 @@ func (worker *Worker) OnJobStart() {
 	// TODO: Move runner setup code here
 	if worker.runner.OnJobStart != nil {
 		worker.runner.OnJobStart(worker.runner)
+	} else if DefaultRunner.OnJobComplete != nil {
+		DefaultRunner.OnJobStart(worker.runner)
 	}
 }
 
@@ -277,5 +296,7 @@ func (worker *Worker) OnJobComplete() {
 
 	if worker.runner.OnJobComplete != nil {
 		worker.runner.OnJobComplete(worker.runner)
+	} else if DefaultRunner.OnJobComplete != nil {
+		DefaultRunner.OnJobComplete(worker.runner)
 	}
 }

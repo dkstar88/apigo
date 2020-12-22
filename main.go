@@ -77,6 +77,13 @@ var runnerConfig = Runner.RunnerConfig {
 
 
 func main() {
+
+	// Setup Default console output
+	Runner.DefaultRunner.OnJobStart = ConsoleRunnerOnJobStart
+	Runner.DefaultRunner.OnJobComplete = ConsoleRunnerOnJobComplete
+	Runner.DefaultRunner.OnJobResponse = OnRunnerJobResponse
+
+
 	var duration string = ""
 	var rootCmd = &cobra.Command{
 		Use:   "runner",
@@ -107,9 +114,6 @@ func main() {
 		//bar.Reset()
 		runner := Runner.NewRunner(runnerConfig)
 		//fmt.Printf("%v\n", runnerConfig)
-		runner.OnJobStart = ConsoleRunnerOnJobStart
-		runner.OnJobComplete = ConsoleRunnerOnJobComplete
-		runner.OnJobResponse = OnRunnerJobResponse
 
 		Runner.WorkerRun(*runner)
 

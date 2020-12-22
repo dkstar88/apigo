@@ -38,7 +38,7 @@ message RunnerConfig {
 }
 
 message Runner {
-  int32 RunnerId = 1;
+  string RunnerId = 1;
   RunnerConfig config = 2;
   Stat Stats = 3;
   google.protobuf.Timestamp StartTime = 4;
@@ -83,7 +83,7 @@ message RunnerResponse {
 }
 
 message IdRunnerRequest {
-  int32 runnerId = 1;
+  string RunnerId = 1;
 }
 
 message RunnersResponse {
