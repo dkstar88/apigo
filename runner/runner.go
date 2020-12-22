@@ -75,6 +75,7 @@ type JobResponseFunc func (runner *Runner, response *http.Response)
 type Runner struct {
 	// Start time
 	Start         time.Time
+	Cancelled 	  time.Time
 	Config        RunnerConfig
 	JobsCreated   int
 	JobsProcessed int
@@ -89,6 +90,7 @@ type Runner struct {
 func NewRunner(runnerConfig RunnerConfig) *Runner {
 	return &Runner{
 		Config: runnerConfig,
+		Cancelled: time.Time{},
 		JobsCreated:   0,
 		JobsProcessed: 0,
 		OnJobRequest: DefaultJobRequest,
@@ -97,4 +99,8 @@ func NewRunner(runnerConfig RunnerConfig) *Runner {
 
 func DefaultJobRequest(runner *Runner) APIRequest {
 	return runner.Config.Request
+}
+
+func (r *Runner) GetProgress() float64 {
+	return time.Now().Sub(r.Start).Seconds() / r.Config.Duration.Seconds()
 }

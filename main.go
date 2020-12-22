@@ -43,7 +43,7 @@ func ConsoleRunnerOnJobStart(runner *Runner.Runner) {
 			case <-done:
 				return
 			case <-ticker.C:
-				progress := time.Now().Sub(runner.Start).Seconds() / runner.Config.Duration.Seconds() * 10000
+				progress :=  runner.GetProgress() * 10000
 				//fmt.Printf("%f, %f Duration Seconds\n", time.Now().Sub(runner.Start).Seconds(), runner.Config.Duration.Seconds())
 				bar.Describe(fmt.Sprintf("%d/%d Jobs Completed", runner.JobsProcessed, runner.JobsCreated))
 				bar.Set(int(progress))
@@ -160,7 +160,6 @@ func main() {
 		defer conn.Close()
 		client := httprunner.NewHttpRunnerClient(conn)
 		rc := httprunner.RunnerConfig{
-			RunnerId:     0,
 			Duration:     duration,
 			Workers:      int32(runnerConfig.Workers),
 			NeedResponse: runnerConfig.NeedResponse,
@@ -170,7 +169,6 @@ func main() {
 				Body:    runnerConfig.Request.Body,
 				Headers: headers,
 			},
-			Status:       0,
 		}
 		client.Enqueue(context.Background(), &rc)
 	}

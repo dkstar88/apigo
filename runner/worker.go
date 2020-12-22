@@ -78,6 +78,9 @@ func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, result
 	defer waiter.Done()
 
 	for {
+		if !worker.runner.Cancelled.IsZero() {
+			break
+		}
 		worker.runner.JobsCreated++
 		var j Job
 		if worker.runner.OnJobRequest != nil {
