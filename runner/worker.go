@@ -3,15 +3,10 @@ package runner
 import (
 	"context"
 	"crypto/tls"
-	"encoding/pem"
-	"golang.org/x/net/http2"
-	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 )
@@ -104,51 +99,6 @@ func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, result
 	}
 }
 
-var (
-	// Command line flags.
-	insecure       bool
-	clientCertFile string
-)
-
-// readClientCert - helper function to read client certificate
-// from pem formatted file
-func readClientCert(filename string) []tls.Certificate {
-	if filename == "" {
-		return nil
-	}
-	var (
-		pkeyPem []byte
-		certPem []byte
-	)
-
-	// read client certificate file (must include client private key and certificate)
-	certFileBytes, err := ioutil.ReadFile(clientCertFile)
-	if err != nil {
-		log.Fatalf("failed to read client certificate file: %v", err)
-	}
-
-	for {
-		block, rest := pem.Decode(certFileBytes)
-		if block == nil {
-			break
-		}
-		certFileBytes = rest
-
-		if strings.HasSuffix(block.Type, "PRIVATE KEY") {
-			pkeyPem = pem.EncodeToMemory(block)
-		}
-		if strings.HasSuffix(block.Type, "CERTIFICATE") {
-			certPem = pem.EncodeToMemory(block)
-		}
-	}
-
-	cert, err := tls.X509KeyPair(certPem, pkeyPem)
-	if err != nil {
-		log.Fatalf("unable to load client cert and key pair: %v", err)
-	}
-	return []tls.Certificate{cert}
-}
-
 // MakeRequest - initiate a request using HTTP
 func (worker *Worker) MakeRequest(ctx context.Context, job Job) APIResponse {
 
@@ -201,27 +151,6 @@ func (worker *Worker) MakeRequest(ctx context.Context, job Job) APIResponse {
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   30 * time.Second,
 		ExpectContinueTimeout: 30 * time.Second,
-	}
-
-	switch u.Scheme {
-	case "https":
-		host, _, err := net.SplitHostPort(req.Host)
-		if err != nil {
-			host = req.Host
-		}
-
-		tr.TLSClientConfig = &tls.Config{
-			ServerName:         host,
-			InsecureSkipVerify: insecure,
-			Certificates:       readClientCert(clientCertFile),
-		}
-
-		// Because we create a custom TLSClientConfig, we have to opt-in to HTTP/2.
-		// See https://github.com/golang/go/issues/14275
-		err = http2.ConfigureTransport(tr)
-		if err != nil {
-			log.Fatalf("failed to prepare transport for HTTP/2: %v", err)
-		}
 	}
 
 	client := &http.Client{
