@@ -37,12 +37,12 @@ func (worker *Worker) Run() {
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
+	worker.runner.Start = time.Now()
+	worker.OnJobStart()
 	for w := 1; w <= workers; w++ {
 		go worker.worker(&wg, ctx, results)
 	}
 	wg.Add(workers)
-	worker.runner.Start = time.Now()
-	worker.OnJobStart()
 	for {
 		timeSince := time.Since(worker.runner.Start)
 		// fmt.Printf("Time since: %v\n", timeSince)
