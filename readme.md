@@ -8,7 +8,7 @@ For help
 `go run main.go -h` 
 
 To load test www.baidu.com, using 10 connections
-`go run main.go run https://www.baidu.com -w 10`
+`go run main.go run https://www.baidu.com -c 10`
 
 
 ## Usage
