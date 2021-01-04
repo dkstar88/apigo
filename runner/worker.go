@@ -56,7 +56,13 @@ func (worker *Worker) Run() {
 		}
 		for a := 1; a <= len(results); a++ {
 			worker.runner.JobsProcessed++
-			<-results
+			r := <-results
+			worker.runner.StatusCodes[r.Status]++
+			if r.Status >= 200 && r.Status <= 299 {
+				worker.runner.JobsSuccessful++
+			} else {
+				worker.runner.JobsFailed++
+			}
 		}
 	}
 	cancel()
@@ -68,15 +74,31 @@ func (worker *Worker) Run() {
 	worker.OnJobComplete()
 }
 
+// Min returns the smaller of x or y.
+func min(x, y int) int {
+	if x > y {
+		return y
+	}
+	return x
+}
+
 // worker processes jobs channel and sends http request
 func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, results chan<- APIResponse) {
 	defer waiter.Done()
-
+	// Init with no error wait time
+	errorWaitTime := time.Duration(0)
+	var errorTimes int = 0
 	for {
 		if !worker.runner.Cancelled.IsZero() {
 			break
 		}
-		worker.runner.JobsCreated++
+		if errorWaitTime > 0 {
+			time.Sleep(time.Millisecond * 100)
+			errorWaitTime -= time.Millisecond * 100
+			if errorWaitTime > 0 {
+				continue
+			}
+		}
 		var j Job
 		if worker.runner.OnJobRequest != nil {
 			j = worker.runner.OnJobRequest(worker.runner)
@@ -85,11 +107,14 @@ func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, result
 		} else {
 			j = DefaultJobRequest(worker.runner)
 		}
-
+		worker.runner.JobsCreated++
 		//fmt.Printf("started job: %v\n", j)
-		r := worker.MakeRequest(ctx, j)
+		r, err := worker.MakeRequest(ctx, j)
 		//fmt.Println("worker", id, "finished job", j)
-
+		if err != nil {
+			worker.runner.JobsFailed++
+			errorWaitTime = (100 * time.Millisecond) * time.Duration(min(errorTimes, 10))
+		}
 		select {
 		case <-ctx.Done():
 
@@ -100,7 +125,7 @@ func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, result
 }
 
 // MakeRequest - initiate a request using HTTP
-func (worker *Worker) MakeRequest(ctx context.Context, job Job) APIResponse {
+func (worker *Worker) MakeRequest(ctx context.Context, job Job) (APIResponse, error) {
 
 	u, err := url.Parse(job.URL)
 	if err != nil {
@@ -116,7 +141,8 @@ func (worker *Worker) MakeRequest(ctx context.Context, job Job) APIResponse {
 	// create a request object
 	req, err := http.NewRequestWithContext(ctx, job.Method, u.String(), nil)
 	if err != nil {
-		log.Fatalf("NewRequestWithContext: %v", err)
+		log.Printf("Error: NewRequestWithContext: %v", err)
+		return APIResponse{}, err
 	}
 	req.Header.Add("Content-Type", job.ContentType)
 
@@ -164,7 +190,8 @@ func (worker *Worker) MakeRequest(ctx context.Context, job Job) APIResponse {
 
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("failed to read response: %v", err)
+		log.Printf("Failed to read response: %v", err)
+		return APIResponse{}, err
 	}
 
 	responseDone := time.Now() // after read body
@@ -212,7 +239,7 @@ func (worker *Worker) MakeRequest(ctx context.Context, job Job) APIResponse {
 	}
 
 	worker.runner.Metrics = append(worker.runner.Metrics, metric)
-	return apiResponse
+	return apiResponse, nil
 }
 
 func (worker *Worker) OnJobStart() {

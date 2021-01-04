@@ -12,6 +12,8 @@ func ConsoleOutput(runner *runner.Runner) {
 	// Summary
 
 	ColorPrintSummary("Iterations", color.FgGreen, fmt.Sprintf("%d", runner.JobsProcessed))
+	ColorPrintSummary("Success", color.FgGreen, fmt.Sprintf("%d", runner.JobsSuccessful))
+	ColorPrintSummary("Failed", color.FgRed, fmt.Sprintf("%d", runner.JobsFailed))
 	ColorPrintSummary("RPS", color.FgGreen, fmt.Sprintf("%.2f", float64(runner.JobsProcessed)/runner.Config.Duration.Seconds()))
 
 	fields := []string{"HTTPBlocked", "HTTPDNS", "HTTPTls",

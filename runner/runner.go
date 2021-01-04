@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-
 // APIRequest api request containing necessary data to initiate a request
 type APIRequest struct {
 	Method      string
@@ -69,31 +68,38 @@ type RunnerConfig struct {
 	CountResponseSize bool
 }
 
-type EventFunc func (runner *Runner)
-type JobResponseFunc func (runner *Runner, response *http.Response)
+type EventFunc func(runner *Runner)
+type JobResponseFunc func(runner *Runner, response *http.Response)
+
 // Worker - HTTP Job Worker
 type Runner struct {
 	// Start time
-	Start         time.Time
-	Cancelled 	  time.Time
-	Config        RunnerConfig
-	JobsCreated   int
-	JobsProcessed int
-	Metrics       []Metric
-	OnJobStart    EventFunc
-	OnJobComplete EventFunc
-	OnJobRequest  JobProviderFunc
-	OnJobResponse JobResponseFunc
+	Start          time.Time
+	Cancelled      time.Time
+	Config         RunnerConfig
+	JobsCreated    int
+	JobsProcessed  int
+	JobsFailed     int // Network Failed, or Status returns not 200-299
+	JobsSuccessful int // HTTP Status return 200-299
+	StatusCodes    map[int]uint32
+	Metrics        []Metric
+	OnJobStart     EventFunc
+	OnJobComplete  EventFunc
+	OnJobRequest   JobProviderFunc
+	OnJobResponse  JobResponseFunc
 }
 
 // NewRunner creates a new runner
 func NewRunner(runnerConfig RunnerConfig) *Runner {
 	return &Runner{
-		Config: runnerConfig,
-		Cancelled: time.Time{},
-		JobsCreated:   0,
-		JobsProcessed: 0,
-		OnJobRequest: DefaultJobRequest,
+		Config:         runnerConfig,
+		Cancelled:      time.Time{},
+		JobsCreated:    0,
+		JobsProcessed:  0,
+		JobsFailed:     0,
+		JobsSuccessful: 0,
+		StatusCodes:    make(map[int]uint32),
+		OnJobRequest:   DefaultJobRequest,
 	}
 }
 

@@ -35,5 +35,5 @@ Flags:
 - Tablewriter for tabled output in terminal.
 - Cobra for CLI commands.
 - Progressbar for displaying load test progress in terminal.
-
+- Stats - For calculating StdDev.
 
