@@ -160,6 +160,7 @@ func (h *HttpRunnerServer) pbRunnerToRunner(pbRunner *pb.Runner) runner.Runner {
 	config := pbRunner.Config
 	duration, err := time.ParseDuration(config.Duration)
 	if err != nil {
+		log.Printf("error parsing %s, %v", config.Duration, err)
 		duration = time.Second * 10
 	}
 	reader := bufio.NewReader(strings.NewReader(config.Url.Headers + "\r\n"))
@@ -169,47 +170,46 @@ func (h *HttpRunnerServer) pbRunnerToRunner(pbRunner *pb.Runner) runner.Runner {
 	if err != nil {
 		log.Print(err)
 	}
-	_runner := runner.Runner{
-		Config: runner.RunnerConfig{
-			Duration:     duration,
-			Workers:      int(config.Workers),
-			NeedResponse: config.NeedResponse,
-			Request: runner.APIRequest{
-				Method:  config.Url.Method,
-				URL:     config.Url.Url,
-				Body:    config.Url.Body,
-				Headers: http.Header(mimeHeader),
-			},
-			OutputCSVFilename: "",
-			CountRequestSize:  false,
-			CountResponseSize: false,
+	_runner := runner.NewRunner(runner.RunnerConfig{
+		Duration:     duration,
+		Workers:      int(config.Workers),
+		NeedResponse: config.NeedResponse,
+		Request: runner.APIRequest{
+			Method:  config.Url.Method,
+			URL:     config.Url.Url,
+			Body:    config.Url.Body,
+			Headers: http.Header(mimeHeader),
 		},
-		Metrics: nil,
-		OnJobResponse: func(r *runner.Runner, response *http.Response) {
+		OutputCSVFilename: "",
+		CountRequestSize:  false,
+		CountResponseSize: false,
+	})
+	_runner.OnJobResponse = func(r *runner.Runner, response *http.Response) {
 			pbRunner.StartTime, err = ptypes.TimestampProto(r.Start)
 			if err != nil {
 				log.Printf("Error: Timestamp conversion failed %v", err)
 			}
 			runner.DefaultRunner.OnJobResponse(r, response)
-		},
-		OnJobStart: func(r *runner.Runner) {
+		}
+
+	_runner.OnJobStart = func(r *runner.Runner) {
 			pbRunner.Status = pb.Status_RUNNING
 			pbRunner.StartTime, err = ptypes.TimestampProto(r.Start)
 			runner.DefaultRunner.OnJobStart(r)
-		},
-		OnJobComplete: func(r *runner.Runner) {
+		}
+	_runner.OnJobComplete = func(r *runner.Runner) {
 			pbRunner.Status = pb.Status_DONE
 			stats := convertToPbStat(utils.GetMetricsStat(r.Metrics))
 			pbRunner.Stats = stats
 			pbRunner.Progress = float32(r.GetProgress())
 			runner.DefaultRunner.OnJobComplete(r)
-		},
-	}
+		}
+
 	h.runnerPairMap[pbRunner.RunnerId] = runnerPair{
 		pbRunner: pbRunner,
-		runner:   &_runner,
+		runner:   _runner,
 	}
-	return _runner
+	return *_runner
 }
 
 func convertToPbStat(stat map[string]utils.MetricStat) map[string]*pb.Stat {

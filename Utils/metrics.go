@@ -2,11 +2,11 @@ package utils
 
 import (
 	"apigo/runner"
+	"github.com/montanaflynn/stats"
 	"math"
 	"reflect"
 	"sort"
 	"time"
-	"github.com/montanaflynn/stats"
 )
 
 type MetricStat struct {
@@ -98,12 +98,13 @@ func MetricsExtract(metrics []runner.Metric, field string) []time.Duration {
 func GetMetricsStat(metrics []runner.Metric) map[string] MetricStat {
 
 	fields := []string{
-		"Blocked", "DNS", "Tls", "Connection",
-		"Sending", "Receiving",
-		"Waiting", "Total",
+		"HTTPBlocked", "HTTPDNS", "HTTPTls", "HTTPConnecting",
+		"HTTPSending", "HTTPReceiving",
+		"HTTPWaiting", "HTTPTotal",
 	}
 	result := make(map[string] MetricStat)
 	for _, f := range fields {
+		//log.Printf("Extracting %s", f)
 		result[f] = GetStats(MetricsExtract(metrics, f))
 	}
 	return result

@@ -170,7 +170,40 @@ func main() {
 				Headers: headers,
 			},
 		}
-		client.Enqueue(context.Background(), &rc)
+		enqueueRes, err := client.Enqueue(context.Background(), &rc)
+		if err != nil {
+			log.Printf("error enqueue request %v", err)
+		}
+		println("Runner Enqueued ID: ", enqueueRes.Runner.RunnerId)
+		waitUtil := runnerConfig.Duration
+		idReq := httprunner.IdRunnerRequest{RunnerId: enqueueRes.Runner.RunnerId}
+		for {
+			if waitUtil > 0 {
+				time.Sleep(time.Millisecond * 500)
+				waitUtil -= time.Millisecond * 500
+			}
+			runnerRes, err := client.GetRunner(context.Background(), &idReq)
+			if err != nil {
+				log.Printf("error GetRunner %v", err)
+			}
+			strStatus := ""
+			switch runnerRes.Runner.Status {
+			case 1:
+				strStatus = "QUEUED"
+			case 2:
+				strStatus = "RUNNING"
+			case 3:
+				strStatus = "DONE"
+			case 9:
+				strStatus = "ERROR"
+			default:
+				strStatus = "Unknown"
+			}
+			println("Runner Status: ", runnerRes.Runner.Status, strStatus)
+			if runnerRes.Runner.Status == 3 {
+				break
+			}
+		}
 	}
 
 	rootCmd.AddCommand(runCmd, serverCmd, clientCmd)

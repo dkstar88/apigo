@@ -57,7 +57,11 @@ func (worker *Worker) Run() {
 		for a := 1; a <= len(results); a++ {
 			worker.runner.JobsProcessed++
 			r := <-results
-			worker.runner.StatusCodes[r.Status]++
+			if val, ok := worker.runner.StatusCodes[r.Status]; ok {
+				worker.runner.StatusCodes[r.Status] = val + 1
+			} else {
+				worker.runner.StatusCodes[r.Status] = 1
+			}
 			if r.Status >= 200 && r.Status <= 299 {
 				worker.runner.JobsSuccessful++
 			} else {
