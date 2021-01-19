@@ -77,10 +77,10 @@ type Runner struct {
 	Start          time.Time
 	Cancelled      time.Time
 	Config         RunnerConfig
-	JobsCreated    int
-	JobsProcessed  int
-	JobsFailed     int // Network Failed, or Status returns not 200-299
-	JobsSuccessful int // HTTP Status return 200-299
+	JobsCreated    int64
+	JobsProcessed  int64
+	JobsFailed     int64 // Network Failed, or Status returns not 200-299
+	JobsSuccessful int64 // HTTP Status return 200-299
 	StatusCodes    map[int]uint32
 	Metrics        []Metric
 	OnJobStart     EventFunc

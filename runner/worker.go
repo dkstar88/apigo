@@ -8,6 +8,7 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -29,8 +30,9 @@ func WorkerRun(runner Runner) {
 
 // Run from runner configuration
 func (worker *Worker) Run() {
-
 	var wg sync.WaitGroup
+	var metricLock sync.Mutex
+
 	//fmt.Println("Run >>>")
 	workers := worker.runner.Config.Workers
 	results := make(chan APIResponse, workers)
@@ -40,7 +42,7 @@ func (worker *Worker) Run() {
 	worker.runner.Start = time.Now()
 	worker.OnJobStart()
 	for w := 1; w <= workers; w++ {
-		go worker.worker(&wg, ctx, results)
+		go worker.worker(&wg, ctx, results, &metricLock)
 	}
 	wg.Add(workers)
 	for {
@@ -55,7 +57,7 @@ func (worker *Worker) Run() {
 			break
 		}
 		for a := 1; a <= len(results); a++ {
-			worker.runner.JobsProcessed++
+			atomic.AddInt64(&worker.runner.JobsProcessed, 1)
 			r := <-results
 			if val, ok := worker.runner.StatusCodes[r.Status]; ok {
 				worker.runner.StatusCodes[r.Status] = val + 1
@@ -63,9 +65,9 @@ func (worker *Worker) Run() {
 				worker.runner.StatusCodes[r.Status] = 1
 			}
 			if r.Status >= 200 && r.Status <= 299 {
-				worker.runner.JobsSuccessful++
+				atomic.AddInt64(&worker.runner.JobsSuccessful, 1)
 			} else {
-				worker.runner.JobsFailed++
+				atomic.AddInt64(&worker.runner.JobsFailed, 1)
 			}
 		}
 	}
@@ -87,7 +89,7 @@ func min(x, y int) int {
 }
 
 // worker processes jobs channel and sends http request
-func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, results chan<- APIResponse) {
+func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, results chan<- APIResponse, metricLock *sync.Mutex) {
 	defer waiter.Done()
 	// Init with no error wait time
 	errorWaitTime := time.Duration(0)
@@ -111,12 +113,12 @@ func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, result
 		} else {
 			j = DefaultJobRequest(worker.runner)
 		}
-		worker.runner.JobsCreated++
+		atomic.AddInt64(&worker.runner.JobsCreated, 1)
 		//fmt.Printf("started job: %v\n", j)
-		r, err := worker.MakeRequest(ctx, j)
+		r, err := worker.MakeRequest(ctx, j, metricLock)
 		//fmt.Println("worker", id, "finished job", j)
 		if err != nil {
-			worker.runner.JobsFailed++
+			atomic.AddInt64(&worker.runner.JobsFailed, 1)
 			errorWaitTime = (100 * time.Millisecond) * time.Duration(min(errorTimes, 10))
 		}
 		select {
@@ -129,7 +131,7 @@ func (worker *Worker) worker(waiter *sync.WaitGroup, ctx context.Context, result
 }
 
 // MakeRequest - initiate a request using HTTP
-func (worker *Worker) MakeRequest(ctx context.Context, job Job) (APIResponse, error) {
+func (worker *Worker) MakeRequest(ctx context.Context, job Job, metricLock *sync.Mutex) (APIResponse, error) {
 
 	u, err := url.Parse(job.URL)
 	if err != nil {
@@ -242,7 +244,10 @@ func (worker *Worker) MakeRequest(ctx context.Context, job Job) (APIResponse, er
 		metric.HTTPConnecting = connDone.Sub(dnsDone)
 	}
 
+	metricLock.Lock()
 	worker.runner.Metrics = append(worker.runner.Metrics, metric)
+	metricLock.Unlock()
+
 	return apiResponse, nil
 }
 

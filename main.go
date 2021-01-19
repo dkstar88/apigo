@@ -1,22 +1,23 @@
 package main
 
 import (
+	apigoGrpc "apigo/grpc"
 	"apigo/grpc/httprunner"
 	Runner "apigo/runner"
 	"apigo/utils"
 	"context"
 	"fmt"
-	"github.com/fatih/color"
-	"github.com/schollz/progressbar/v3"
-	"github.com/spf13/cobra"
 	"log"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
-	"google.golang.org/grpc"
-	apigoGrpc "apigo/grpc"
-)
 
+	"github.com/fatih/color"
+	"github.com/schollz/progressbar/v3"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+)
 
 var ticker = time.NewTicker(500 * time.Millisecond)
 var done = make(chan bool)
@@ -43,13 +44,15 @@ func ConsoleRunnerOnJobStart(runner *Runner.Runner) {
 			case <-done:
 				return
 			case <-ticker.C:
-				progress :=  runner.GetProgress() * 10000
+				progress := runner.GetProgress() * 10000
 				//fmt.Printf("%f, %f Duration Seconds\n", time.Now().Sub(runner.Start).Seconds(), runner.Config.Duration.Seconds())
-				bar.Describe(fmt.Sprintf("%d/%d Jobs Completed", runner.JobsProcessed, runner.JobsCreated))
+				bar.Describe(fmt.Sprintf("%d/%d Jobs Completed",
+					atomic.LoadInt64(&runner.JobsProcessed),
+					atomic.LoadInt64(&runner.JobsCreated)))
 				bar.Set(int(progress))
 			}
 		}
-	} (runner)
+	}(runner)
 }
 
 var bar = progressbar.NewOptions(10000,
@@ -64,17 +67,14 @@ var bar = progressbar.NewOptions(10000,
 		BarEnd:        "]",
 	}))
 
-func OnRunnerJobResponse (runner *Runner.Runner, response *http.Response) {
+func OnRunnerJobResponse(runner *Runner.Runner, response *http.Response) {
 	// Calc progress
 	progress := time.Now().Sub(runner.Start).Seconds() / runner.Config.Duration.Seconds() * 10000
 	bar.Set(int(progress))
 
 }
 
-var runnerConfig = Runner.RunnerConfig {
-
-}
-
+var runnerConfig = Runner.RunnerConfig{}
 
 func main() {
 
@@ -82,7 +82,6 @@ func main() {
 	Runner.DefaultRunner.OnJobStart = ConsoleRunnerOnJobStart
 	Runner.DefaultRunner.OnJobComplete = ConsoleRunnerOnJobComplete
 	Runner.DefaultRunner.OnJobResponse = OnRunnerJobResponse
-
 
 	var duration string = ""
 	var rootCmd = &cobra.Command{
@@ -119,10 +118,10 @@ func main() {
 
 	}
 	serverCmd := &cobra.Command{
-		Use:   "server",
-		Aliases: []string {"s"},
-		Short: "Starts a HTTP runner server",
-		Long: `Starts a HTTP runner server`,
+		Use:     "server",
+		Aliases: []string{"s"},
+		Short:   "Starts a HTTP runner server",
+		Long:    `Starts a HTTP runner server`,
 	}
 	serverCmd.PersistentFlags().String("Host", "127.0.0.1", "gRPC Host address")
 	serverCmd.PersistentFlags().UintP("Port", "p", 7000, "gRPC Host Port")
@@ -136,7 +135,7 @@ func main() {
 	clientCmd := &cobra.Command{
 		Use:   "client",
 		Short: "Starts a HTTP runner server",
-		Long: `Starts a HTTP runner server`,
+		Long:  `Starts a HTTP runner server`,
 	}
 	clientCmd.PersistentFlags().IntVarP(&runnerConfig.Workers, "Concurrent Connections", "c", 10, "Number of concurrent connections")
 	clientCmd.PersistentFlags().StringVarP(&duration, "duration", "t", "1m", "Test duration")
@@ -163,7 +162,7 @@ func main() {
 			Duration:     duration,
 			Workers:      int32(runnerConfig.Workers),
 			NeedResponse: runnerConfig.NeedResponse,
-			Url:          &httprunner.Url{
+			Url: &httprunner.Url{
 				Url:     runnerConfig.Request.URL,
 				Method:  runnerConfig.Request.Method,
 				Body:    runnerConfig.Request.Body,
