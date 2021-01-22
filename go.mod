@@ -7,7 +7,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.1 // indirect
 	github.com/google/uuid v1.1.2
-	github.com/icza/gox v0.0.0-20200702115100-7dc3510ae515
+	github.com/icza/gox v0.0.0-20201215141822-6edfac6c05b5
 	github.com/montanaflynn/stats v0.6.3
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/schollz/progressbar/v3 v3.7.2
